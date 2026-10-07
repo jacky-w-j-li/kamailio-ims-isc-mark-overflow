@@ -1,0 +1,32 @@
+diff --git a/src/modules/ims_isc/mark.c b/src/modules/ims_isc/mark.c
+index 738a37b8d1..b9ecc7d123 100644
+--- a/src/modules/ims_isc/mark.c
++++ b/src/modules/ims_isc/mark.c
+@@ -304,14 +304,25 @@ int isc_mark_set(struct sip_msg *msg, isc_match *match, isc_mark *mark)
+ 	/* Drop all the old Header Lump "Route: <as>, <my>" */
+ 	isc_mark_drop_route(msg);
+ 
++	if(mark->aor.len < 0 || mark->aor.len > (int)sizeof(aor_hex) / 2) {
++		LM_ERR("invalid length for the address of the mark (%d)\n",
++				mark->aor.len);
++		return 0;
++	}
++
+ 	len = bin_to_base16(mark->aor.s, mark->aor.len, aor_hex);
+ 	/* Create the Marking */
+-	sprintf(chr_mark, "%s@%.*s;lr;s=%d;h=%d;d=%d;a=%.*s", ISC_MARK_USERNAME,
++	len = snprintf(chr_mark, sizeof(chr_mark),
++			"%s@%.*s;lr;s=%d;h=%d;d=%d;a=%.*s", ISC_MARK_USERNAME,
+ 			isc_my_uri.len, isc_my_uri.s, mark->skip, mark->handling,
+ 			mark->direction, len, aor_hex);
++	if(len < 0 || len >= (int)sizeof(chr_mark)) {
++		LM_ERR("the mark to add is too long (%d)\n", len);
++		return 0;
++	}
+ 	/* Add it in a lump */
+ 	route.s = chr_mark;
+-	route.len = strlen(chr_mark);
++	route.len = len;
+ 	if(match)
+ 		as = match->server_name;
+ 	isc_mark_write_route(msg, &as, &route);
